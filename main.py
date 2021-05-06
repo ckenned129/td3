@@ -1,5 +1,6 @@
 import gym
 import torch
+import time
 from models import TD3
 
 
@@ -11,7 +12,7 @@ def train(env_name, warmup_iter=int(25e3), train_iter=int(1e6)):
     u_max = float(env.action_space.high[0])
     td3 = TD3(x_dim, u_dim, u_max)
 
-    print(eval(env_name, td3.actor))
+    print('pre_train: ', eval(env_name, td3.actor))
     x = env.reset()
     for i in range(warmup_iter):
         u_random = env.action_space.sample()
@@ -36,6 +37,8 @@ def train(env_name, warmup_iter=int(25e3), train_iter=int(1e6)):
             #ep_num += 1
 
     for i in range(train_iter):
+        if i % 1e3 == 0:
+            print('i: ', i,  eval(env_name, td3.actor))
         u = td3.actor(torch.tensor(x).float()).detach().numpy()
         x_next, reward, done, info = env.step(u)
         td3.replay_buffer.append([x, u, x_next, reward, done])
@@ -72,8 +75,8 @@ def train(env_name, warmup_iter=int(25e3), train_iter=int(1e6)):
             done = False
 
 
-    print(eval(env_name, td3.actor))
-    return td3.actor
+    print('train end: ', eval(env_name, td3.actor))
+    return td3
 
 def eval(env_name, actor, num_episodes=10):
     env = gym.make(env_name)
@@ -100,4 +103,14 @@ def load(self, filename):
     self.actor_target = copy.deepcopy(self.actor)
 
 if __name__ == '__main__':
-    train(env_name='Ant-v2') # Ant-v2, HalfCheetah-v2, Hopper-v2
+
+    if torch.cuda.is_available():
+        torch.set_default_tensor_type(torch.cuda.FloatTensor)
+    else:
+        torch.set_default_tensor_type(torch.FloatTensor)
+
+    td3 = train(env_name='Ant-v2') # Ant-v2, HalfCheetah-v2, Hopper-v2
+
+    torch.save(td3.actor.state_dict(), f'td3_actor_{time.strftime(r"%m_%d_%H:%M")}.pt')
+    torch.save(td3.critic_1.state_dict(), f'td3_critic_1_{time.strftime(r"%m_%d_%H:%M")}.pt')
+    torch.save(td3.critic_2.state_dict(), f'td3_critic_2_{time.strftime(r"%m_%d_%H:%M")}.pt')
