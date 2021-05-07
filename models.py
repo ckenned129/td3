@@ -100,12 +100,12 @@ class TD3():
 
         sample_inds = np.random.randint(0, len(self.replay_buffer), self.batch_size)
         get_rb_ind = lambda i: torch.cat([torch.from_numpy(self.replay_buffer[s][i]).view(1, -1)
-            for s in sample_inds], dim=0).float()
+            for s in sample_inds], dim=0).float().to(device)
         x = get_rb_ind(0)
         u = get_rb_ind(1)
         x_next = get_rb_ind(2)
-        reward = torch.tensor([self.replay_buffer[s][3] for s in sample_inds]).float().view(-1, 1)
-        done = torch.tensor([self.replay_buffer[s][4] for s in sample_inds]).float().view(-1, 1)
+        reward = torch.tensor([self.replay_buffer[s][3] for s in sample_inds]).float().view(-1, 1).to(device)
+        done = torch.tensor([self.replay_buffer[s][4] for s in sample_inds]).float().view(-1, 1).to(device)
         return x, u, x_next, reward, done
 
     def critic_loss(self, batch):

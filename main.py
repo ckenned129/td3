@@ -11,7 +11,11 @@ def train(env_name, warmup_iter=int(25e3), train_iter=int(1e6)):
     u_dim = env.action_space.shape[0]
     u_max = float(env.action_space.high[0])
     td3 = TD3(x_dim, u_dim, u_max)
-
+    if torch.cuda.is_available():
+        td3.actor.cuda()
+        td3.critic_1.cuda()
+        td3.critic_2.cuda()
+        
     print('pre_train: ', eval(env_name, td3.actor))
     x = env.reset()
     for i in range(warmup_iter):
@@ -37,9 +41,14 @@ def train(env_name, warmup_iter=int(25e3), train_iter=int(1e6)):
             #ep_num += 1
 
     for i in range(train_iter):
-        if i % 1e3 == 0:
+        if i % 1e4 == 0:
             print('i: ', i,  eval(env_name, td3.actor))
-        u = td3.actor(torch.tensor(x).float()).detach().numpy()
+        if i % 1e5 == 0:
+            torch.save(td3.actor.state_dict(), f'td3_hop_actor_{time.strftime(r"%m_%d_%H:%M")}.pt')
+            torch.save(td3.critic_1.state_dict(), f'td3_hop_critic_1_{time.strftime(r"%m_%d_%H:%M")}.pt')
+            torch.save(td3.critic_2.state_dict(), f'td3_hop_critic_2_{time.strftime(r"%m_%d_%H:%M")}.pt')
+
+        u = td3.actor(torch.tensor(x).float()).detach().cpu().numpy()
         x_next, reward, done, info = env.step(u)
         td3.replay_buffer.append([x, u, x_next, reward, done])
         x = x_next
@@ -87,7 +96,7 @@ def eval(env_name, actor, num_episodes=10):
         done = False
         while not done:
             u = actor(torch.tensor(x).float())
-            x, reward, done, _ = env.step(u.detach().numpy())
+            x, reward, done, _ = env.step(u.detach().cpu().numpy())
             tot_reward += reward
 
     return tot_reward / num_episodes
@@ -109,8 +118,8 @@ if __name__ == '__main__':
     else:
         torch.set_default_tensor_type(torch.FloatTensor)
 
-    td3 = train(env_name='Ant-v2') # Ant-v2, HalfCheetah-v2, Hopper-v2
+    td3 = train(env_name='Hopper-v2') # Ant-v2, HalfCheetah-v2, Hopper-v2
 
-    torch.save(td3.actor.state_dict(), f'td3_actor_{time.strftime(r"%m_%d_%H:%M")}.pt')
-    torch.save(td3.critic_1.state_dict(), f'td3_critic_1_{time.strftime(r"%m_%d_%H:%M")}.pt')
-    torch.save(td3.critic_2.state_dict(), f'td3_critic_2_{time.strftime(r"%m_%d_%H:%M")}.pt')
+    torch.save(td3.actor.state_dict(), f'td3_hop_actor_{time.strftime(r"%m_%d_%H:%M")}.pt')
+    torch.save(td3.critic_1.state_dict(), f'td3_hop_critic_1_{time.strftime(r"%m_%d_%H:%M")}.pt')
+    torch.save(td3.critic_2.state_dict(), f'td3_hop_critic_2_{time.strftime(r"%m_%d_%H:%M")}.pt')
