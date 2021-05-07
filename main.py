@@ -15,7 +15,7 @@ def train(env_name, warmup_iter=int(25e3), train_iter=int(1e6)):
         td3.actor.cuda()
         td3.critic_1.cuda()
         td3.critic_2.cuda()
-        
+
     print('pre_train: ', eval(env_name, td3.actor))
     x = env.reset()
     for i in range(warmup_iter):
@@ -48,7 +48,10 @@ def train(env_name, warmup_iter=int(25e3), train_iter=int(1e6)):
             torch.save(td3.critic_1.state_dict(), f'td3_hop_critic_1_{time.strftime(r"%m_%d_%H:%M")}.pt')
             torch.save(td3.critic_2.state_dict(), f'td3_hop_critic_2_{time.strftime(r"%m_%d_%H:%M")}.pt')
 
-        u = td3.actor(torch.tensor(x).float()).detach().cpu().numpy()
+        u = td3.actor(torch.tensor(x).float())
+        u_noise = torch.normal(0, .1 * td3.u_max, size=u.shape)
+        u = (u + u_noise).clip(-td3.u_max, td3.u_max).detach().cpu().numpy()
+
         x_next, reward, done, info = env.step(u)
         td3.replay_buffer.append([x, u, x_next, reward, done])
         x = x_next
@@ -101,15 +104,15 @@ def eval(env_name, actor, num_episodes=10):
 
     return tot_reward / num_episodes
 
-
-def load(self, filename):
-    self.critic.load_state_dict(torch.load(filename + "_critic"))
-    self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer"))
-    self.critic_target = copy.deepcopy(self.critic)
-
-    self.actor.load_state_dict(torch.load(filename + "_actor"))
-    self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer"))
-    self.actor_target = copy.deepcopy(self.actor)
+def render(env_name, actor):
+    env = gym.make(env_name)
+    for i in range(10):
+        x = env.reset()
+        done = False
+        while not done:
+            u = actor(torch.tensor(x).float())
+            env.render()
+            x, reward, done, _ = env.step(u.detach().cpu().numpy())
 
 if __name__ == '__main__':
 
@@ -118,7 +121,15 @@ if __name__ == '__main__':
     else:
         torch.set_default_tensor_type(torch.FloatTensor)
 
-    td3 = train(env_name='Hopper-v2') # Ant-v2, HalfCheetah-v2, Hopper-v2
+    #env = gym.make('Hopper-v2')
+    #x_dim = env.observation_space.shape[0]
+    #u_dim = env.action_space.shape[0]
+    #u_max = float(env.action_space.high[0])
+    #td3 = TD3(x_dim, u_dim, u_max)
+
+    #td3.actor.load_state_dict(torch.load('td3_hop_actor_05_07_08:47.pt', map_location=torch.device('cpu')))
+    #render('Hopper-v2', td3.actor)
+    #exit()
 
     torch.save(td3.actor.state_dict(), f'td3_hop_actor_{time.strftime(r"%m_%d_%H:%M")}.pt')
     torch.save(td3.critic_1.state_dict(), f'td3_hop_critic_1_{time.strftime(r"%m_%d_%H:%M")}.pt')

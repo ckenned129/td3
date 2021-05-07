@@ -51,7 +51,7 @@ class TD3():
         u_dim,
         u_max,
         h_dim=256,
-        gamma=0.9,
+        gamma=0.99,
         u_noise_std=0.2,
         u_noise_max=0.5,
         policy_update_period=2,
@@ -72,17 +72,10 @@ class TD3():
         self.u_noise_std = u_noise_std # std dev
         self.u_noise_max = u_noise_max # noise is clipped
         self.gamma = gamma # discount
-        self.tau = .05 # exponential averaging constant
+        self.tau = .005 # exponential averaging constant
         self.policy_update_period = policy_update_period
 
         self.batch_size = 256
-        self.replay_buffer = [
-            torch.tensor([]).view(0, x_dim), # x
-            torch.tensor([]).view(0, u_dim), # u
-            torch.tensor([]).view(0, x_dim), # x_next
-            torch.tensor([]).view(0, 1), # reward
-            torch.tensor([]).view(0, 1)  # done
-        ]
         self.replay_buffer = []
 
     def add_replay_buffer_sample(self, x, u, x_next, reward, done):
@@ -120,7 +113,6 @@ class TD3():
             critic_target_q = reward + self.gamma * (1 - done) * \
                 torch.min(self.critic_1_target(x_next, u_next), self.critic_2_target(x_next, u_next))
 
-        torch.autograd.set_detect_anomaly(True)
         loss_fn = torch.nn.MSELoss()
         critic_loss = loss_fn(self.critic_1(x, u), critic_target_q) + \
             loss_fn(self.critic_2(x, u), critic_target_q)
